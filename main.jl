@@ -7,10 +7,10 @@ using LinearAlgebra
 using TSne
 using Clustering
 using Loess
-
 using Distributions: Bernoulli
+using BSON: @save, @load
 
-theme(:mute)
+theme(:bright)
 
 ids = map(i -> i.ID, filter(i -> contains(i.Reference, "Hadfield"), web_of_life()))
 B = convert.(BipartiteNetwork, web_of_life.(ids))
@@ -93,14 +93,14 @@ ps = Flux.params(m)
 opt = ADAM()
 
 n_batches, batch_size = 25000, 16
+
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
-
 matrices_alwaysNo = zeros(Int64, (2,2,n_batches))
 matrices_neutral = zeros(Int64, (2,2,n_batches))
 
 function neutral_model_confusion_matrix(connectance, l)
-    pred = [ rand(Bernoulli(connectance)) for i in l]'
+    pred = [rand(Bernoulli(connectance)) for i in l]'
     obs = Flux.onecold(l, [false, true])
     M = zeros(Int64, (2,2))
     M[1,1] = sum(pred .* obs)
@@ -109,7 +109,6 @@ function neutral_model_confusion_matrix(connectance, l)
     M[2,1] = sum(pred .< obs)
     return M
 end
-
 
 function always_no_interaction_confusion_matrix(l)
     pred = [ false for i in l]'
@@ -122,8 +121,6 @@ function always_no_interaction_confusion_matrix(l)
     return M
 end
 
-
-
 @showprogress for i in 1:n_batches
     ord = sample(train, batch_size, replace=false)
     data_batch = (x[:,ord], y[:,ord])
@@ -131,15 +128,16 @@ end
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
     end
-   # Flux.train!(loss, ps, [data_batch], opt)
+    Flux.train!(loss, ps, [data_batch], opt)
     empirical_connectance = sum(data_batch[2])/(length(data_batch[2]))
     matrices_neutral[:,:,i] = neutral_model_confusion_matrix(empirical_connectance, data_test[2])
     matrices_alwaysNo[:,:,i] = always_no_interaction_confusion_matrix(data_test[2])
    
-  #  matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-   # matrices_train[:,:,i] = confusion_matrix(m, data...)
+    matrices_test[:,:,i] = confusion_matrix(m, data_test...)
+    matrices_train[:,:,i] = confusion_matrix(m, data...)
 end
 
+@save "netpred.bson" m
 
 include("plotnetwork.jl")
 savefig("network-trained.png")
@@ -150,20 +148,6 @@ specificity = (M) -> M[2,2]/(M[1,2]+M[2,2])
 tss = (M) -> (M[1,1]*M[2,2]-M[1,2]*M[2,1])/((M[1,1]+M[2,1])*(M[1,2]+M[2,2]))
 
 plot(
-    vec(mapslices(specificity, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="Specificity", c=:orange,
-    legend=:bottomleft
-)
-plot!(
-    vec(mapslices(specificity, matrices_test, dims=[1,2])),
-    lab="Validation", c=:teal, lw=2.0
-)
-plot!(
-    vec(mapslices(specificity, matrices_neutralModel, dims=[1,2])),
-    lab="Neutral", lw=2.0
-)
-
-plot(
     vec(mapslices(accuracy, matrices_train, dims=[1,2])),
     lab = "Training", ylab="Accuracy",
     legend=:topright, frame=:box,
@@ -171,50 +155,86 @@ plot(
 )
 plot!(
     vec(mapslices(accuracy, matrices_test, dims=[1,2])),
-    lab="Validation", lw=2.0
-)
-plot!(
-    vec(mapslices(accuracy, matrices_alwaysNo, dims=[1,2])),
-    lab="Always No Interaction", lw=2.0
+    lab="Validation"
 )
 plot!(
     vec(mapslices(accuracy, matrices_neutral, dims=[1,2])),
-    lab="Neutral", lw=2.0
+    lab="Neutral"
+)
+plot!(
+    vec(mapslices(accuracy, matrices_alwaysNo, dims=[1,2])),
+    lab="Empty matrix", ls=:dash, c=:grey
 )
 xaxis!((0, 25000), "Epoch")
-yaxis!((0,1), "Accuracy")
-savefig("validation.png")
+yaxis!((0.4,1), "Accuracy")
+savefig("accuracy.png")
 
 plot(
     vec(mapslices(tss, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="True-Skill Statistic", c=:orange,
-    legend=:bottomleft
+    lab = "Training", ylab="Accuracy",
+    legend=:right, frame=:box,
+    dpi=400, size=(400,400)
 )
 plot!(
     vec(mapslices(tss, matrices_test, dims=[1,2])),
-    lab="Validation", c=:teal, lw=2.0
+    lab="Validation"
 )
 plot!(
-    vec(mapslices(tss, matrices_neutralModel, dims=[1,2])),
-    lab="Neutral", lw=2.0
+    vec(mapslices(tss, matrices_neutral, dims=[1,2])),
+    lab="Neutral"
 )
+plot!(
+    vec(mapslices(tss, matrices_alwaysNo, dims=[1,2])),
+    lab="Empty matrix", ls=:dash, c=:grey
+)
+xaxis!((0, 25000), "Epoch")
+yaxis!((-0.1,0.6), "TSS")
+savefig("tss.png")
 
 plot(
     vec(mapslices(sensitivity, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="Sensitivity",
-    legend=:bottomleft
+    lab = "Training", ylab="Accuracy",
+    legend=:bottomright, frame=:box,
+    dpi=400, size=(400,400)
 )
 plot!(
     vec(mapslices(sensitivity, matrices_test, dims=[1,2])),
-    lab="Validation", lw=2.0
+    lab="Validation"
 )
 plot!(
-    vec(mapslices(sensitivity, matrices_neutralModel, dims=[1,2])),
-    lab="Neutral", lw=2.0
+    vec(mapslices(sensitivity, matrices_neutral, dims=[1,2])),
+    lab="Neutral"
+)
+plot!(
+    vec(mapslices(sensitivity, matrices_alwaysNo, dims=[1,2])),
+    lab="Empty matrix", ls=:dash, c=:grey
 )
 xaxis!((0, 25000), "Epoch")
-yaxis!((0,1), "Sensitivity")
-savefig("validation2.png")
+yaxis!((0.1,0.8), "Sensitivity")
+savefig("sensitivity.png")
+
+
+plot(
+    vec(mapslices(specificity, matrices_train, dims=[1,2])),
+    lab = "Training", ylab="Accuracy",
+    legend=:right, frame=:box,
+    dpi=400, size=(400,400)
+)
+plot!(
+    vec(mapslices(specificity, matrices_test, dims=[1,2])),
+    lab="Validation"
+)
+plot!(
+    vec(mapslices(specificity, matrices_neutral, dims=[1,2])),
+    lab="Neutral"
+)
+plot!(
+    vec(mapslices(specificity, matrices_alwaysNo, dims=[1,2])),
+    lab="Empty matrix", ls=:dash, c=:grey
+)
+xaxis!((0, 25000), "Epoch")
+yaxis!((0.4,1.0), "Specificity")
+savefig("specificity.png")
 
 predictions = Flux.onecold(m(features), [false, true])
 P = copy(M)

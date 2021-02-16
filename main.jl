@@ -94,6 +94,25 @@ n_batches, batch_size = 25000, 16
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
 
+matrices_neutralModel = zeros(Int64, (2,2,n_batches))
+# -------
+function neutral_model_confusion_matrix(connectance, l)
+    
+    dist = Bernoulli(connectance)
+   # pred = [ rand(dist) for l in l]'
+
+   pred = [ false for l in l]'
+   obs = Flux.onecold(l, [false, true])
+    M = zeros(Int64, (2,2))
+    M[1,1] = sum(pred .* obs)
+    M[2,2] = sum(.!pred .* .!obs)
+    M[1,2] = sum(pred .> obs)
+    M[2,1] = sum(pred .< obs)
+    return M
+end
+
+
+
 @showprogress for i in 1:n_batches
     ord = sample(train, batch_size, replace=false)
     data_batch = (x[:,ord], y[:,ord])
@@ -101,10 +120,14 @@ matrices_test = zeros(Int64, (2,2,n_batches))
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
     end
-    Flux.train!(loss, ps, [data_batch], opt)
-    matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-    matrices_train[:,:,i] = confusion_matrix(m, data...)
+   # Flux.train!(loss, ps, [data_batch], opt)
+    empirical_connectance = sum(data_batch[2])/(length(data_batch[2]))
+    matrices_neutralModel[:,:,i] = neutral_model_confusion_matrix(empirical_connectance, data_test[2])
+  #  matrices_test[:,:,i] = confusion_matrix(m, data_test...)
+  #  matrices_train[:,:,i] = confusion_matrix(m, data...)
 end
+
+
 include("plotnetwork.jl")
 savefig("network-trained.png")
 
@@ -122,6 +145,10 @@ plot!(
     vec(mapslices(specificity, matrices_test, dims=[1,2])),
     lab="Validation", c=:teal, lw=2.0
 )
+plot!(
+    vec(mapslices(specificity, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
+)
 
 plot(
     vec(mapslices(accuracy, matrices_train, dims=[1,2])),
@@ -133,8 +160,12 @@ plot!(
     vec(mapslices(accuracy, matrices_test, dims=[1,2])),
     lab="Validation", lw=2.0
 )
+plot!(
+    vec(mapslices(accuracy, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
+)
 xaxis!((0, 25000), "Epoch")
-yaxis!((0,1), "Accuracy")
+yaxis!((0.65,1), "Accuracy")
 savefig("validation.png")
 
 plot(
@@ -146,6 +177,10 @@ plot!(
     vec(mapslices(tss, matrices_test, dims=[1,2])),
     lab="Validation", c=:teal, lw=2.0
 )
+plot!(
+    vec(mapslices(tss, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
+)
 
 plot(
     vec(mapslices(sensitivity, matrices_train, dims=[1,2])),
@@ -155,6 +190,10 @@ plot(
 plot!(
     vec(mapslices(sensitivity, matrices_test, dims=[1,2])),
     lab="Validation", lw=2.0
+)
+plot!(
+    vec(mapslices(sensitivity, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
 )
 xaxis!((0, 25000), "Epoch")
 yaxis!((0,1), "Sensitivity")
@@ -212,3 +251,5 @@ emb_post = tsne(convert.(Float64, Array(convert(UnipartiteNetwork, P).edges)), n
 km = kmeans(emb_post', 2)
 scatter(emb_post[:,1], emb_post[:,2], frame=:none, lab="", marker_z=assignments(km), c=:Dark2, legend=false, msw=0.5, aspectratio=1, size=(500, 500), dpi=400)
 savefig("tsne-imputed.png")
+
+

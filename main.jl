@@ -8,6 +8,8 @@ using TSne
 using Clustering
 using Loess
 
+using Distributions: Bernoulli
+
 theme(:mute)
 
 ids = map(i -> i.ID, filter(i -> contains(i.Reference, "Hadfield"), web_of_life()))
@@ -94,6 +96,34 @@ n_batches, batch_size = 25000, 16
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
 
+matrices_alwaysNo = zeros(Int64, (2,2,n_batches))
+matrices_neutral = zeros(Int64, (2,2,n_batches))
+
+function neutral_model_confusion_matrix(connectance, l)
+    pred = [ rand(Bernoulli(connectance)) for i in l]'
+    obs = Flux.onecold(l, [false, true])
+    M = zeros(Int64, (2,2))
+    M[1,1] = sum(pred .* obs)
+    M[2,2] = sum(.!pred .* .!obs)
+    M[1,2] = sum(pred .> obs)
+    M[2,1] = sum(pred .< obs)
+    return M
+end
+
+
+function always_no_interaction_confusion_matrix(l)
+    pred = [ false for i in l]'
+    obs = Flux.onecold(l, [false, true])
+    M = zeros(Int64, (2,2))
+    M[1,1] = sum(pred .* obs)
+    M[2,2] = sum(.!pred .* .!obs)
+    M[1,2] = sum(pred .> obs)
+    M[2,1] = sum(pred .< obs)
+    return M
+end
+
+
+
 @showprogress for i in 1:n_batches
     ord = sample(train, batch_size, replace=false)
     data_batch = (x[:,ord], y[:,ord])
@@ -101,10 +131,16 @@ matrices_test = zeros(Int64, (2,2,n_batches))
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
     end
-    Flux.train!(loss, ps, [data_batch], opt)
-    matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-    matrices_train[:,:,i] = confusion_matrix(m, data...)
+   # Flux.train!(loss, ps, [data_batch], opt)
+    empirical_connectance = sum(data_batch[2])/(length(data_batch[2]))
+    matrices_neutral[:,:,i] = neutral_model_confusion_matrix(empirical_connectance, data_test[2])
+    matrices_alwaysNo[:,:,i] = always_no_interaction_confusion_matrix(data_test[2])
+   
+  #  matrices_test[:,:,i] = confusion_matrix(m, data_test...)
+   # matrices_train[:,:,i] = confusion_matrix(m, data...)
 end
+
+
 include("plotnetwork.jl")
 savefig("network-trained.png")
 
@@ -115,23 +151,35 @@ tss = (M) -> (M[1,1]*M[2,2]-M[1,2]*M[2,1])/((M[1,1]+M[2,1])*(M[1,2]+M[2,2]))
 
 plot(
     vec(mapslices(specificity, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="Specificity", c=:orange, 
+    lab = "Training", ylab="Specificity", c=:orange,
     legend=:bottomleft
 )
 plot!(
     vec(mapslices(specificity, matrices_test, dims=[1,2])),
     lab="Validation", c=:teal, lw=2.0
 )
+plot!(
+    vec(mapslices(specificity, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
+)
 
 plot(
     vec(mapslices(accuracy, matrices_train, dims=[1,2])),
     lab = "Training", ylab="Accuracy",
-    legend=:bottomleft, frame=:box,
+    legend=:topright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
     vec(mapslices(accuracy, matrices_test, dims=[1,2])),
     lab="Validation", lw=2.0
+)
+plot!(
+    vec(mapslices(accuracy, matrices_alwaysNo, dims=[1,2])),
+    lab="Always No Interaction", lw=2.0
+)
+plot!(
+    vec(mapslices(accuracy, matrices_neutral, dims=[1,2])),
+    lab="Neutral", lw=2.0
 )
 xaxis!((0, 25000), "Epoch")
 yaxis!((0,1), "Accuracy")
@@ -139,12 +187,16 @@ savefig("validation.png")
 
 plot(
     vec(mapslices(tss, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="True-Skill Statistic", c=:orange, 
+    lab = "Training", ylab="True-Skill Statistic", c=:orange,
     legend=:bottomleft
 )
 plot!(
     vec(mapslices(tss, matrices_test, dims=[1,2])),
     lab="Validation", c=:teal, lw=2.0
+)
+plot!(
+    vec(mapslices(tss, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
 )
 
 plot(
@@ -156,12 +208,16 @@ plot!(
     vec(mapslices(sensitivity, matrices_test, dims=[1,2])),
     lab="Validation", lw=2.0
 )
+plot!(
+    vec(mapslices(sensitivity, matrices_neutralModel, dims=[1,2])),
+    lab="Neutral", lw=2.0
+)
 xaxis!((0, 25000), "Epoch")
 yaxis!((0,1), "Sensitivity")
 savefig("validation2.png")
 
 predictions = Flux.onecold(m(features), [false, true])
-P = copy(M) 
+P = copy(M)
 P.edges[findall(predictions)] .= true
 
 eN = AJS(N)

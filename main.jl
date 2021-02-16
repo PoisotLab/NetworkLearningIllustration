@@ -7,7 +7,6 @@ using LinearAlgebra
 using TSne
 using Clustering
 using Loess
-
 using Distributions: Bernoulli
 
 theme(:mute)
@@ -93,14 +92,14 @@ ps = Flux.params(m)
 opt = ADAM()
 
 n_batches, batch_size = 25000, 16
+
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
-
 matrices_alwaysNo = zeros(Int64, (2,2,n_batches))
 matrices_neutral = zeros(Int64, (2,2,n_batches))
 
 function neutral_model_confusion_matrix(connectance, l)
-    pred = [ rand(Bernoulli(connectance)) for i in l]'
+    pred = [rand(Bernoulli(connectance)) for i in l]'
     obs = Flux.onecold(l, [false, true])
     M = zeros(Int64, (2,2))
     M[1,1] = sum(pred .* obs)
@@ -109,7 +108,6 @@ function neutral_model_confusion_matrix(connectance, l)
     M[2,1] = sum(pred .< obs)
     return M
 end
-
 
 function always_no_interaction_confusion_matrix(l)
     pred = [ false for i in l]'
@@ -122,8 +120,6 @@ function always_no_interaction_confusion_matrix(l)
     return M
 end
 
-
-
 @showprogress for i in 1:n_batches
     ord = sample(train, batch_size, replace=false)
     data_batch = (x[:,ord], y[:,ord])
@@ -131,13 +127,13 @@ end
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
     end
-   # Flux.train!(loss, ps, [data_batch], opt)
+    Flux.train!(loss, ps, [data_batch], opt)
     empirical_connectance = sum(data_batch[2])/(length(data_batch[2]))
     matrices_neutral[:,:,i] = neutral_model_confusion_matrix(empirical_connectance, data_test[2])
     matrices_alwaysNo[:,:,i] = always_no_interaction_confusion_matrix(data_test[2])
    
-  #  matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-   # matrices_train[:,:,i] = confusion_matrix(m, data...)
+    matrices_test[:,:,i] = confusion_matrix(m, data_test...)
+    matrices_train[:,:,i] = confusion_matrix(m, data...)
 end
 
 

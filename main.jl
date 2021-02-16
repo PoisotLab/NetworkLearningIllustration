@@ -95,14 +95,10 @@ matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
 
 matrices_neutralModel = zeros(Int64, (2,2,n_batches))
-# -------
-function neutral_model_confusion_matrix(connectance, l)
-    
-    dist = Bernoulli(connectance)
-   # pred = [ rand(dist) for l in l]'
 
-   pred = [ false for l in l]'
-   obs = Flux.onecold(l, [false, true])
+function neutral_model_confusion_matrix(connectance, l)
+    pred = [ false for l in l]'
+    obs = Flux.onecold(l, [false, true])
     M = zeros(Int64, (2,2))
     M[1,1] = sum(pred .* obs)
     M[2,2] = sum(.!pred .* .!obs)
@@ -138,7 +134,7 @@ tss = (M) -> (M[1,1]*M[2,2]-M[1,2]*M[2,1])/((M[1,1]+M[2,1])*(M[1,2]+M[2,2]))
 
 plot(
     vec(mapslices(specificity, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="Specificity", c=:orange, 
+    lab = "Training", ylab="Specificity", c=:orange,
     legend=:bottomleft
 )
 plot!(
@@ -170,7 +166,7 @@ savefig("validation.png")
 
 plot(
     vec(mapslices(tss, matrices_train, dims=[1,2])),
-    lab = "Training", ylab="True-Skill Statistic", c=:orange, 
+    lab = "Training", ylab="True-Skill Statistic", c=:orange,
     legend=:bottomleft
 )
 plot!(
@@ -200,7 +196,7 @@ yaxis!((0,1), "Sensitivity")
 savefig("validation2.png")
 
 predictions = Flux.onecold(m(features), [false, true])
-P = copy(M) 
+P = copy(M)
 P.edges[findall(predictions)] .= true
 
 eN = AJS(N)
@@ -251,5 +247,3 @@ emb_post = tsne(convert.(Float64, Array(convert(UnipartiteNetwork, P).edges)), n
 km = kmeans(emb_post', 2)
 scatter(emb_post[:,1], emb_post[:,2], frame=:none, lab="", marker_z=assignments(km), c=:Dark2, legend=false, msw=0.5, aspectratio=1, size=(500, 500), dpi=400)
 savefig("tsne-imputed.png")
-
-

@@ -8,6 +8,8 @@ using TSne
 using Clustering
 using Loess
 
+using Distributions: Bernoulli
+
 theme(:mute)
 
 ids = map(i -> i.ID, filter(i -> contains(i.Reference, "Hadfield"), web_of_life()))
@@ -94,10 +96,23 @@ n_batches, batch_size = 25000, 16
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
 
-matrices_neutralModel = zeros(Int64, (2,2,n_batches))
+matrices_alwaysNo = zeros(Int64, (2,2,n_batches))
+matrices_neutral = zeros(Int64, (2,2,n_batches))
 
 function neutral_model_confusion_matrix(connectance, l)
-    pred = [ false for l in l]'
+    pred = [ rand(Bernoulli(connectance)) for i in l]'
+    obs = Flux.onecold(l, [false, true])
+    M = zeros(Int64, (2,2))
+    M[1,1] = sum(pred .* obs)
+    M[2,2] = sum(.!pred .* .!obs)
+    M[1,2] = sum(pred .> obs)
+    M[2,1] = sum(pred .< obs)
+    return M
+end
+
+
+function always_no_interaction_confusion_matrix(l)
+    pred = [ false for i in l]'
     obs = Flux.onecold(l, [false, true])
     M = zeros(Int64, (2,2))
     M[1,1] = sum(pred .* obs)
@@ -118,9 +133,11 @@ end
     end
    # Flux.train!(loss, ps, [data_batch], opt)
     empirical_connectance = sum(data_batch[2])/(length(data_batch[2]))
-    matrices_neutralModel[:,:,i] = neutral_model_confusion_matrix(empirical_connectance, data_test[2])
+    matrices_neutral[:,:,i] = neutral_model_confusion_matrix(empirical_connectance, data_test[2])
+    matrices_alwaysNo[:,:,i] = always_no_interaction_confusion_matrix(data_test[2])
+   
   #  matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-  #  matrices_train[:,:,i] = confusion_matrix(m, data...)
+   # matrices_train[:,:,i] = confusion_matrix(m, data...)
 end
 
 
@@ -149,7 +166,7 @@ plot!(
 plot(
     vec(mapslices(accuracy, matrices_train, dims=[1,2])),
     lab = "Training", ylab="Accuracy",
-    legend=:bottomleft, frame=:box,
+    legend=:topright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
@@ -157,11 +174,15 @@ plot!(
     lab="Validation", lw=2.0
 )
 plot!(
-    vec(mapslices(accuracy, matrices_neutralModel, dims=[1,2])),
+    vec(mapslices(accuracy, matrices_alwaysNo, dims=[1,2])),
+    lab="Always No Interaction", lw=2.0
+)
+plot!(
+    vec(mapslices(accuracy, matrices_neutral, dims=[1,2])),
     lab="Neutral", lw=2.0
 )
 xaxis!((0, 25000), "Epoch")
-yaxis!((0.65,1), "Accuracy")
+yaxis!((0,1), "Accuracy")
 savefig("validation.png")
 
 plot(

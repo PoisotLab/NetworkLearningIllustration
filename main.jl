@@ -64,14 +64,14 @@ data = (x[:,train], y[:,train])
 data_test = (x[:,test], y[:,test])
 
 m = Chain(
-    Dense(2nf, 3nf, relu),
+    Dense(2nf, 3nf, leakyrelu),
     Dropout(0.8),
-    Dense(3nf, ceil(Int64, 1.5nf), σ),
-    Dropout(0.5),
-    Dense(ceil(Int64, 1.5nf), 12, σ),
-    Dropout(0.5),
+    Dense(3nf, ceil(Int64, 2.2nf), σ),
+    Dropout(0.6),
+    Dense(ceil(Int64, 2.2nf), 12, σ),
+    Dropout(0.6),
     Dense(12, 2, σ),
-    Dropout(0.5),
+    Dropout(0.6),
     softmax
 )
 include("plotnetwork.jl")
@@ -80,7 +80,7 @@ savefig("figures/network-untrained.png")
 function confusion_matrix(model, f, l)
     pred = Flux.onecold(model(f), [false, true])
     obs = Flux.onecold(l, [false, true])
-    M = zeros(Int64, (2,2))
+    M = zeros(Int64, 2, 2)
     M[1,1] = sum(pred .* obs)
     M[2,2] = sum(.!pred .* .!obs)
     M[1,2] = sum(pred .> obs)
@@ -92,22 +92,32 @@ loss(x, y) = Flux.logitcrossentropy(m(x), y)
 ps = Flux.params(m)
 opt = ADAM()
 
-n_batches, batch_size = 25000, 16
+n_batches, batch_size = 50000, 32
 
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
 
+mat_at = 500
+
 @showprogress for i in 1:n_batches
-    ord = sample(train, batch_size, replace=false)
-    data_batch = (x[:,ord], y[:,ord])
-    while sum(data_batch[2],dims=2)[2] < ceil(Int64, 0.4batch_size)
+    ord = sample(train, batch_size, replace=false);
+    data_batch = (x[:,ord], y[:,ord]);
+    while sum(data_batch[2],dims=2)[2] < ceil(Int64, 0.25batch_size)
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
+    end;
+    Flux.train!(loss, ps, [data_batch], opt);
+    
+    if i % mat_at == 0 # Do not save all matrices
+        matrices_test[:,:,i] = confusion_matrix(m, data_test...)
+        matrices_train[:,:,i] = confusion_matrix(m, data...)
     end
-    Flux.train!(loss, ps, [data_batch], opt)
-    matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-    matrices_train[:,:,i] = confusion_matrix(m, data...)
+
 end
+
+epc = mat_at:mat_at:n_batches
+mtest = matrices_test[:,:,epc]
+mtrain = matrices_train[:,:,epc]
 
 @save "netpred.bson" m
 
@@ -123,10 +133,13 @@ P = copy(M)
 P.edges[findall(predictions)] .= true
 
 eN = AJS(N)
-histogram(last.(eN))
-
 eP = AJS(P)
-histogram(last.(eP))
+
+density(last.(eN), xlim=(0,1), frame=:box, lab="Empirical data", dpi=400, size=(400,400))
+density!(last.(eP), lab="Imputed data")
+xaxis!("Pairwise additive Jaccard similarity")
+yaxis!("Density")
+savefig("figures/overlap.png")
 
 function dk(N; kw...)
     d = collect(values(degree(N; kw...)))

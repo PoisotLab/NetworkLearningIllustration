@@ -27,140 +27,140 @@ end
 
 # ACCURACY PLOT
 plot(
-    vec(mapslices(ACC, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(ACC, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:bottomleft, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(ACC, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(ACC, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(ACC.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(ACC.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.0, 1), "Accuracy")
 savefig("figures/accuracy.png")
 
 # TSS PLOT
 plot(
-    vec(mapslices(TSS, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(TSS, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:bottomright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(TSS, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(TSS, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(TSS.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(TSS.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((-1.0,1.0), "TSS")
 savefig("figures/tss.png")
 
 # False Positive Rate
 plot(
-    vec(mapslices(FPR, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(FPR, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:topright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(FPR, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(FPR, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(FPR.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(FPR.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.0,0.5), "False positive rate")
 savefig("figures/fpr.png")
 
 # False negative rate
 plot(
-    vec(mapslices(FNR, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(FNR, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:topright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(FNR, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(FNR, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(FNR.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(FNR.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.2,1.0), "False negative rate")
 savefig("figures/fnr.png")
 
 
 # True positive rate
 plot(
-    vec(mapslices(TPR, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(TPR, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:topright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(TPR, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(TPR, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(TPR.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(TPR.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.0,1.0), "True positive rate")
 savefig("figures/tpr.png")
 
 
 # True negative rate
 plot(
-    vec(mapslices(TNR, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(TNR, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:bottomright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(TNR, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(TNR, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(TNR.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(TNR.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.5,1.0), "True negative rate")
 savefig("figures/tnr.png")
 
 
 # Critical success index
 plot(
-    vec(mapslices(CSI, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(CSI, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:right, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(CSI, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(CSI, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(CSI.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(CSI.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.0,0.6), "Critical success index")
 savefig("figures/csi.png")
 
 
 # Informedness
 plot(
-    vec(mapslices(INF, matrices_train, dims=[1,2])),
+    epc, vec(mapslices(INF, mtrain, dims=[1,2])),
     lab = "Training",
     legend=:bottomright, frame=:box,
     dpi=400, size=(400,400)
 )
 plot!(
-    vec(mapslices(INF, matrices_test, dims=[1,2])),
+    epc, vec(mapslices(INF, mtest, dims=[1,2])),
     lab="Validation"
 )
 hline!([mean(INF.(get_bounds(labels, c_co)))], lab="Connectance (co-occurrence)", c=:darkgrey, ls=:dash)
 hline!([mean(INF.(get_bounds(labels, r_co)))], lab="Connectance (global)", c=:darkgrey)
-xaxis!((0, 25000), "Epoch")
+xaxis!((0, n_batches), "Epoch")
 yaxis!((0.0,0.6), "Informedness")
 savefig("figures/inf.png")

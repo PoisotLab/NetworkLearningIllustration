@@ -66,11 +66,11 @@ data_test = (x[:,test], y[:,test])
 m = Chain(
     Dense(2nf, 3nf, relu),
     Dropout(0.8),
-    Dense(3nf, nf, σ),
+    Dense(3nf, ceil(Int64, 1.5nf), σ),
     Dropout(0.5),
-    Dense(nf, 8, σ),
+    Dense(ceil(Int64, 1.5nf), 12, σ),
     Dropout(0.5),
-    Dense(8, 2, σ),
+    Dense(12, 2, σ),
     Dropout(0.5),
     softmax
 )
@@ -100,7 +100,7 @@ matrices_test = zeros(Int64, (2,2,n_batches))
 @showprogress for i in 1:n_batches
     ord = sample(train, batch_size, replace=false)
     data_batch = (x[:,ord], y[:,ord])
-    while sum(data_batch[2],dims=2)[2] < 0.3batch_size
+    while sum(data_batch[2],dims=2)[2] < ceil(Int64, 0.4batch_size)
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
     end

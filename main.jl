@@ -66,12 +66,12 @@ data_test = (x[:,test], y[:,test])
 m = Chain(
     Dense(2nf, 3nf, leakyrelu),
     Dropout(0.8),
-    Dense(3nf, ceil(Int64, 2.2nf), σ),
+    Dense(3nf, ceil(Int64, 2.2nf), tanh),
     Dropout(0.6),
     Dense(ceil(Int64, 2.2nf), 12, σ),
     Dropout(0.6),
     Dense(12, 2, σ),
-    Dropout(0.6),
+    Dropout(0.3),
     softmax
 )
 include("plotnetwork.jl")
@@ -92,7 +92,7 @@ loss(x, y) = Flux.logitcrossentropy(m(x), y)
 ps = Flux.params(m)
 opt = ADAM()
 
-n_batches, batch_size = 50000, 32
+n_batches, batch_size = 100000, 16
 
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))
@@ -135,8 +135,8 @@ P.edges[findall(predictions)] .= true
 eN = AJS(N)
 eP = AJS(P)
 
-density(last.(eN), xlim=(0,1), frame=:box, lab="Empirical data", dpi=400, size=(400,400))
-density!(last.(eP), lab="Imputed data")
+density(last.(eN), xlim=(0,1), frame=:box, lab="Empirical data", dpi=400, size=(400,400), fill=(0, 0.2))
+density!(last.(eP), lab="Imputed data", fill=(0, 0.2), ls=:dash)
 xaxis!("Pairwise additive Jaccard similarity")
 yaxis!("Density")
 savefig("figures/overlap.png")

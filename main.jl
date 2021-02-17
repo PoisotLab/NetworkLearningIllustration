@@ -26,7 +26,7 @@ xaxis!("PC1")
 yaxis!("PC2")
 savefig("figures/features.png")
 
-nf = 14
+nf = 12
 cooc = zeros(Bool, prod(size(M)))
 labels = zeros(Bool, prod(size(M)))
 features = zeros(Float64, (2*nf, prod(size(M))))
@@ -64,13 +64,13 @@ data = (x[:,train], y[:,train])
 data_test = (x[:,test], y[:,test])
 
 m = Chain(
-    Dense(2nf, 3nf, leakyrelu),
+    Dense(2nf, ceil(Int64, 2.4nf), relu),
     Dropout(0.8),
-    Dense(3nf, ceil(Int64, 2.2nf), tanh),
+    Dense(ceil(Int64, 2.4nf), ceil(Int64, 1.5nf), σ),
     Dropout(0.6),
-    Dense(ceil(Int64, 2.2nf), 12, σ),
+    Dense(ceil(Int64, 1.5nf), ceil(Int64, 0.8nf), σ),
     Dropout(0.6),
-    Dense(12, 2, σ),
+    Dense(ceil(Int64, 0.8nf), 2, σ),
     Dropout(0.3),
     softmax
 )
@@ -92,7 +92,7 @@ loss(x, y) = Flux.logitcrossentropy(m(x), y)
 ps = Flux.params(m)
 opt = ADAM()
 
-n_batches, batch_size = 100000, 16
+n_batches, batch_size = 200000, 32
 
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))

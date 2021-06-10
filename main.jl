@@ -1,15 +1,17 @@
 using Flux
+using Random
 using EcologicalNetworks
 using MultivariateStats
 using StatsPlots
 using ProgressMeter
-using LinearAlgebra
 using TSne
 using Clustering
 using Loess
 using BSON: @save, @load
 using StatsBase: quantile
 using Statistics
+
+Random.seed!(420)
 
 theme(:bright)
 
@@ -27,7 +29,7 @@ xaxis!("PC1")
 yaxis!("PC2")
 savefig("figures/features.png")
 
-nf = 12
+nf = 15
 cooc = zeros(Bool, prod(size(M)))
 labels = zeros(Bool, prod(size(M)))
 features = zeros(Float64, (2*nf, prod(size(M))))
@@ -56,6 +58,7 @@ end
 kept = findall(cooc)
 x = Float32.(copy(features[:, kept]))
 y = Flux.onehotbatch(labels[kept], [false, true])
+y = Matrix(hcat(labels[kept])')
 
 training_size = convert(Int64, floor(size(x, 2)*0.8))
 train = sort(sample(1:size(x,2), training_size, replace=false))
@@ -64,6 +67,7 @@ test = filter(i -> !(i in train), 1:size(x,2))
 data = (x[:,train], y[:,train])
 data_test = (x[:,test], y[:,test])
 
+# This version uses a single bit for the interaction, so we can threshold
 m = Chain(
     Dense(2nf, ceil(Int64, 2.4nf), relu),
     Dropout(0.8),
@@ -71,54 +75,89 @@ m = Chain(
     Dropout(0.6),
     Dense(ceil(Int64, 1.5nf), ceil(Int64, 0.8nf), σ),
     Dropout(0.6),
-    Dense(ceil(Int64, 0.8nf), 2, σ),
-    Dropout(0.3),
-    softmax
+    Dense(ceil(Int64, 0.8nf), 1, σ)
 )
+
 include("plotnetwork.jl")
 savefig("figures/network-untrained.png")
 
-function confusion_matrix(model, f, l)
-    pred = Flux.onecold(model(f), [false, true])
-    obs = Flux.onecold(l, [false, true])
-    M = zeros(Int64, 2, 2)
-    M[1,1] = sum(pred .* obs)
-    M[2,2] = sum(.!pred .* .!obs)
-    M[1,2] = sum(pred .> obs)
-    M[2,1] = sum(pred .< obs)
-    return M
-end
-
-loss(x, y) = Flux.logitcrossentropy(m(x), y)
+loss(x, y) = Flux.mse(m(x), y)
 ps = Flux.params(m)
 opt = ADAM()
 
-n_batches, batch_size = 500000, 32
+n_batches, batch_size = 30000, 64
 
-matrices_train = zeros(Int64, (2,2,n_batches))
-matrices_test = zeros(Int64, (2,2,n_batches))
-
+# We only save the loss at some interval
 mat_at = 500
+epc = mat_at:mat_at:n_batches
+epc = vcat(1, epc...)
+
+trainlossvalue = zeros(Float64, n_batches)
+testlossvalue = zeros(Float64, n_batches)
 
 @showprogress for i in 1:n_batches
     ord = sample(train, batch_size, replace=false);
     data_batch = (x[:,ord], y[:,ord]);
-    while sum(data_batch[2],dims=2)[2] < ceil(Int64, 0.25batch_size)
+    while sum(data_batch[2]) < ceil(Int64, 0.25batch_size)
         ord = sample(train, batch_size, replace=false)
         data_batch = (x[:,ord], y[:,ord])
     end;
     Flux.train!(loss, ps, [data_batch], opt);
-    
-    if i % mat_at == 0 # Do not save all matrices
-        matrices_test[:,:,i] = confusion_matrix(m, data_test...)
-        matrices_train[:,:,i] = confusion_matrix(m, data...)
+    if i in epc # Do not save all matrices
+        trainlossvalue[i] = loss(data...)
+        testlossvalue[i] = loss(data_test...)
     end
-
 end
 
-epc = mat_at:mat_at:n_batches
-mtest = matrices_test[:,:,epc]
-mtrain = matrices_train[:,:,epc]
+
+# Plot of loss function
+plot(epc, trainlossvalue[epc], lab="Training", dpi=400, frame=:box)
+plot!(epc, testlossvalue[epc], lab="Testing")
+xaxis!("Epoch")
+yaxis!("Loss (MSE)")
+savefig("figures/loss.png")
+
+# Thresholding code
+predictions = vec(m(data_test[1]))
+thresholds = range(0.0, 1.0; length=200)
+tpr = zeros(Float64, length(thresholds))
+fpr = zeros(Float64, length(thresholds))
+J = zeros(Float64, length(thresholds))
+κ = zeros(Float64, length(thresholds))
+acc = zeros(Float64, length(thresholds))
+racc = zeros(Float64, length(thresholds))
+bacc = zeros(Float64, length(thresholds))
+obs = vec(data_test[2])
+
+for (i,thr) in enumerate(thresholds)
+    pred = vec(predictions .>= thr)
+    tp = sum(pred .& obs)
+    tn = sum(.!(pred) .& (.!obs))
+    fp = sum(pred .& (.!obs))
+    fn = sum(.!(pred) .& obs)
+    n = tp + fp + tn + fn
+    tpr[i] = tp/(tp+fn)
+    fpr[i] = fp/(fp+tn)
+    acc[i] = (tp+tn)/(n)
+    racc[i] = ((tn+fp)*(tn+fn)+(fn+tp)*(fp+tp))/(n*n)
+    bacc[i] = ((tp/(tp+fn))+(tn/(fp+tn)))/2.0
+    J[i] = (tp/(tp+fn)) + (tn/(tn+fp)) - 1.0
+    κ[i] = (acc[i]-racc[i])/(1-racc[i])
+end
+
+dx = [reverse(fpr)[i] - reverse(fpr)[i - 1] for i in 2:length(fpr)]
+dy = [reverse(tpr)[i] + reverse(tpr)[i - 1] for i in 2:length(tpr)]
+AUC = sum(dx .* (dy ./ 2.0))
+
+thr_index = last(findmax(J))
+thr_final = thresholds[thr_index]
+
+plot(fpr, tpr, aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400)
+scatter!([fpr[thr_index]], [tpr[thr_index]], lab="", c=:black)
+plot!([0,1], [0,1], c=:grey, ls=:dash, lab="")
+xaxis!("False positive rate", (0,1))
+yaxis!("True positive rate", (0,1))
+savefig("figures/roc-auc.png")
 
 @save "netpred.bson" m
 

@@ -1,4 +1,5 @@
 using Flux
+using Random
 using EcologicalNetworks
 using MultivariateStats
 using StatsPlots
@@ -9,6 +10,8 @@ using Loess
 using BSON: @save, @load
 using StatsBase: quantile
 using Statistics
+
+Random.seed!(420)
 
 theme(:bright)
 
@@ -100,7 +103,7 @@ testlossvalue = zeros(Float64, n_batches)
         data_batch = (x[:,ord], y[:,ord])
     end;
     Flux.train!(loss, ps, [data_batch], opt);
-    if i % mat_at == 0 # Do not save all matrices
+    if i in epc # Do not save all matrices
         trainlossvalue[i] = loss(data...)
         testlossvalue[i] = loss(data_test...)
     end
@@ -112,6 +115,7 @@ plot(epc, trainlossvalue[epc], lab="Training", dpi=400, frame=:box)
 plot!(epc, testlossvalue[epc], lab="Testing")
 xaxis!("Epoch")
 yaxis!("Loss (MSE)")
+savefig("figures/loss.png")
 
 # Thresholding code
 predictions = vec(m(data_test[1]))
@@ -122,6 +126,7 @@ J = zeros(Float64, length(thresholds))
 κ = zeros(Float64, length(thresholds))
 acc = zeros(Float64, length(thresholds))
 racc = zeros(Float64, length(thresholds))
+bacc = zeros(Float64, length(thresholds))
 obs = vec(data_test[2])
 
 for (i,thr) in enumerate(thresholds)
@@ -135,13 +140,24 @@ for (i,thr) in enumerate(thresholds)
     fpr[i] = fp/(fp+tn)
     acc[i] = (tp+tn)/(n)
     racc[i] = ((tn+fp)*(tn+fn)+(fn+tp)*(fp+tp))/(n*n)
+    bacc[i] = ((tp/(tp+fn))+(tn/(fp+tn)))/2.0
     J[i] = (tp/(tp+fn)) + (tn/(tn+fp)) - 1.0
     κ[i] = (acc[i]-racc[i])/(1-racc[i])
 end
 
+dx = [reverse(fpr)[i] - reverse(fpr)[i - 1] for i in 2:length(fpr)]
+dy = [reverse(tpr)[i] + reverse(tpr)[i - 1] for i in 2:length(tpr)]
+AUC = sum(dx .* (dy ./ 2.0))
+
+thr_index = last(findmax(J))
+thr_final = thresholds[thr_index]
+
 plot(fpr, tpr, aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400)
+scatter!([fpr[thr_index]], [tpr[thr_index]], lab="", c=:black)
+plot!([0,1], [0,1], c=:grey, ls=:dash, lab="")
 xaxis!("False positive rate", (0,1))
 yaxis!("True positive rate", (0,1))
+savefig("figures/roc-auc.png")
 
 @save "netpred.bson" m
 

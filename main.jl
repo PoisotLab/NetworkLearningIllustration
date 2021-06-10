@@ -9,6 +9,7 @@ using Clustering
 using Loess
 using BSON: @save, @load
 using StatsBase: quantile
+using Statistics
 
 theme(:bright)
 
@@ -92,7 +93,7 @@ loss(x, y) = Flux.logitcrossentropy(m(x), y)
 ps = Flux.params(m)
 opt = ADAM()
 
-n_batches, batch_size = 200000, 32
+n_batches, batch_size = 500000, 32
 
 matrices_train = zeros(Int64, (2,2,n_batches))
 matrices_test = zeros(Int64, (2,2,n_batches))

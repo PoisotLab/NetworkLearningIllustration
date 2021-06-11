@@ -7,6 +7,9 @@ using ProgressMeter
 using BSON: @save, @load
 using Statistics
 using TSne
+using DataFrames
+import CSV
+using ParallelKMeans
 
 # We will need some folders to store the results
 for f in ["figures", "artifacts"]
@@ -157,7 +160,7 @@ end
 # This is a simple plot of the loss values over time, to aid with the diagnosis of
 # overfitting -- if the two curves diverge a lot, especially with the testing
 # loss going back up, the model is mad sus
-plot(epc, trainlossvalue[epc], lab="Training", dpi=400, frame=:box)
+plot(epc, trainlossvalue[epc], lab="Training", dpi=400, frame=:box, size=(400,400))
 plot!(epc, testlossvalue[epc], lab="Testing")
 xaxis!("Epoch")
 yaxis!("Loss (MSE)")
@@ -213,7 +216,7 @@ thr_index = last(findmax(J))
 thr_final = thresholds[thr_index]
 
 # ROC plot
-plot(fpr, tpr, aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400)
+plot(fpr, tpr, aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400,400))
 scatter!([fpr[thr_index]], [tpr[thr_index]], lab="", c=:black)
 plot!([0,1], [0,1], c=:grey, ls=:dash, lab="")
 xaxis!("False positive rate", (0,1))
@@ -229,21 +232,42 @@ savefig("figures/roc-auc.png")
 include("plotnetwork.jl")
 savefig("figures/network-trained.png")
 
+# Predictions and co-occurrences
+pr = vec(m(features))    # Raw predictions
+imp = pr .>= thr_final   # Larger than threshold
+nwi = imp .& .!labels    # New
+
 # We can now move on to the actual imputation
 P = copy(M)
 
-P.edges[findall(reshape(m(features), size(P.edges)).>=thr_final)] .= true
+# This will store the interactions
+new_interactions = DataFrame(parasite = String[], host = String[], cooc = Bool[], p = Float64[])
 
-# We can get a list of the interactions in the new network
-setdiff(interactions(P), interactions(N))
+# We will fill the network, but also add the interaction values to a DataFrame
+global cursor = 0
+for i in eachindex(species(P; dims=1)), j in eachindex(species(P; dims=2))
+    cursor += 1
+    if imp[cursor]
+        P[i,j] = true
+        if !M[i,j]
+            push!(new_interactions,
+                (species(P; dims=1)[i], species(P; dims=2)[j], cooc[cursor], pr[cursor])
+            )
+        end
+    end
+end
 
-# This allows us to get the change in degree
+# We save the new interactions file to disk
+CSV.write("artifacts/predictions.csv", sort(new_interactions, :p, rev=true))
+
+# We can do simple diagnostic plots, like change in degree
 dh = [(degree(N)[s], degree(P)[s]) for s in species(M; dims=2)]
 dp = [(degree(N)[s], degree(P)[s]) for s in species(M; dims=1)]
 
 # We can plot this to check that rich do not get richer
-scatter(dh, frame=:box, dpi=400, legend=:bottomright, aspectratio=1, label="Hosts")
-scatter!(dp, label="Parasites")
+scatter(dh, frame=:box, dpi=400, legend=:bottomright, aspectratio=1, label="Hosts", ms=6, alpha=0.6)
+scatter!(dp, label="Parasites", ms=5, size=(400,400), alpha=0.6)
+plot!([1,200],[1,200], lab="", c=:grey, ls=:dot)
 xaxis!(:log10, "Degree (measured)", (1, 200))
 yaxis!(:log10, "Degree (imputed)", (1, 200))
 
@@ -251,7 +275,7 @@ yaxis!(:log10, "Degree (imputed)", (1, 200))
 savefig("figures/degree-change.png")
 
 # We can check the distribution of specificity
-density(collect(values(specificity(M))), frame=:box, dpi=400, lab="Empirical", fill=(0, 0.2))
+density(collect(values(specificity(M))), frame=:box, dpi=400, lab="Empirical", fill=(0, 0.2), size=(400, 400))
 density!(collect(values(specificity(P))), lab="Imputed", fill=(0, 0.2))
 vline!([0.5], lab="", c=:grey, ls=:dash)
 xaxis!("Specificity", (0, 1))
@@ -266,12 +290,16 @@ emb_post = tsne(
         Float64,
         Array(EcologicalNetworks.mirror(convert(UnipartiteNetwork, P)).edges),
     ),
-    2,
+    3,
     nf,
     15000,
     5,
     pca_init = true,
 )
+
+# k-means
+elbow = [ParallelKMeans.kmeans(emb_post', i, n_threads=4; tol=1e-6, max_iters=500, verbose=false).totalcost for i = 2:20];
+# use scatter(elbow) to check
 
 # Positions of the hosts and parasites
 idx_para = indexin(species(M; dims=1), species(K))
@@ -296,24 +324,29 @@ for (i,ip) in enumerate(old_interacting_pairs)
 end
 
 # We start by plotting the edges
-plot(ox, oy, frame = :none, lab = "", legend = false, c=:lightgrey, alpha=0.05, dpi=400)
-plot!(nx, ny, lab = "", c=:red, alpha=0.01)
+plot(ox, oy, frame = :none, lab = "", legend = false, c=:lightgrey, alpha=0.1, dpi=400, size=(400,400))
+plot!(nx, ny, lab = "", c=:black, alpha=0.1, lw=0.5)
 
 # Then we add the nodes
+clusters = kmeans(emb_post', 7).assignments
+wng = palette(distinguishable_colors(length(unique(clusters))))
 scatter!(
     emb_post[idx_host, 1],
     emb_post[idx_host, 2],
     m = :square,
+    marker_z = clusters[idx_host],
     msw = 0.0,
     ms = 3,
-    c = :darkgrey
+    c = wng
 )
 scatter!(
     emb_post[idx_para, 1],
     emb_post[idx_para, 2],
     ms = 3,
-    c = :black
+    marker_z = clusters[idx_para],
+    c = wng
 )
 
 # And we save
 savefig("figures/tsne-imputed.png")
+

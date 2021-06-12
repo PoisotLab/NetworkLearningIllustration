@@ -274,9 +274,9 @@ P = copy(M)
 new_interactions = DataFrame(parasite = String[], host = String[], cooc = Bool[], p = Float64[])
 
 # We will fill the network, but also add the interaction values to a DataFrame
-global cursor = 0
+cursor = 0
 for i in eachindex(species(P; dims=1)), j in eachindex(species(P; dims=2))
-    cursor += 1
+    global cursor += 1
     if imp[cursor]
         P[i,j] = true
         if !M[i,j]

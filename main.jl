@@ -10,6 +10,7 @@ using TSne
 using DataFrames
 import CSV
 using ParallelKMeans
+using JSON
 
 # We will need some folders to store the results
 for f in ["figures", "artifacts"]
@@ -213,8 +214,6 @@ fdirate = fp ./ (fp .+ tp)
 ppv = tp ./ (tp .+ fp)
 npv = tn ./ (tn .+ fn)
 
-# TODO add these to a Dict and save to a JSON file
-
 # This bit is here to get the AUC
 dx = [reverse(fpr)[i] - reverse(fpr)[i - 1] for i in 2:length(fpr)]
 dy = [reverse(tpr)[i] + reverse(tpr)[i - 1] for i in 2:length(tpr)]
@@ -223,6 +222,28 @@ AUC = sum(dx .* (dy ./ 2.0))
 # Final thresholding results - we pick the value maximizing Youden's J
 thr_index = last(findmax(J))
 thr_final = thresholds[thr_index]
+
+# Save the validation measures to a plot
+validation = Dict{String, Float64}()
+validation["ROC-AUC"] = AUC[thr_index]
+validation["Threat score"] = threat[thr_index]
+validation["Youden's J"] = J[thr_index]
+validation["True Positive Rate"] = tpr[thr_index]
+validation["True Negative Rate"] = tnr[thr_index]
+validation["False Positive Rate"] = fpr[thr_index]
+validation["False Negative Rate"] = fnr[thr_index]
+validation["Kappa"] = κ[thr_index]
+validation["Accuracy"] = acc[thr_index]
+validation["Accuracy (random)"] = racc[thr_index]
+validation["Accuracy (balanced)"] = bacc[thr_index]
+validation["False Discovery Rate"] = fdirate[thr_index]
+validation["False Omission Rate"] = fomrate[thr_index]
+validation["Positive Predictive Value"] = ppv[thr_index]
+validation["Negative Predictive Value"] = npv[thr_index]
+
+open("artifacts/validation.json", 'w') do f
+    JSON.print(f, validation, 4)
+end
 
 # ROC plot
 plot(fpr, tpr, aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400,400))

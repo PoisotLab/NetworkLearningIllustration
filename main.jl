@@ -225,7 +225,7 @@ thr_final = thresholds[thr_index]
 
 # Save the validation measures to a plot
 validation = Dict{String, Float64}()
-validation["ROC-AUC"] = AUC[thr_index]
+validation["ROC-AUC"] = AUC
 validation["Threat score"] = threat[thr_index]
 validation["Youden's J"] = J[thr_index]
 validation["True Positive Rate"] = tpr[thr_index]
@@ -241,7 +241,7 @@ validation["False Omission Rate"] = fomrate[thr_index]
 validation["Positive Predictive Value"] = ppv[thr_index]
 validation["Negative Predictive Value"] = npv[thr_index]
 
-open("artifacts/validation.json", 'w') do f
+open("artifacts/validation.json", "w") do f
     JSON.print(f, validation, 4)
 end
 

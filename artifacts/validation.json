@@ -1,0 +1,17 @@
+{
+    "Positive Predictive Value": 0.6666666666666666,
+    "Threat score": 0.5580589254766031,
+    "True Negative Rate": 0.8336776859504132,
+    "True Positive Rate": 0.7740384615384616,
+    "Negative Predictive Value": 0.8956714761376249,
+    "False Positive Rate": 0.16632231404958678,
+    "Accuracy (balanced)": 0.8038580737444374,
+    "Accuracy": 0.8157514450867052,
+    "False Omission Rate": 0.10432852386237514,
+    "ROC-AUC": 0.8696782620788301,
+    "False Negative Rate": 0.22596153846153846,
+    "False Discovery Rate": 0.3333333333333333,
+    "Youden's J": 0.6077161474888748,
+    "Kappa": 0.5810342371432641,
+    "Accuracy (random)": 0.5602300444385044
+}

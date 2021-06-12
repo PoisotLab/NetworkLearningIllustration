@@ -200,11 +200,20 @@ n = tp .+ fp .+ tn .+ fn
 # Diagnostic measures
 tpr = tp ./ (tp .+ fn)
 fpr = fp ./ (fp .+ tn)
+tnr = tn ./ (tn .+ fp)
+fnr = fn ./ (fn .+ tp)
 acc = (tp .+ tn) ./ (n)
 racc = ((tn .+ fp) .* (tn .+ fn) .+ (fn .+ tp) .* (fp .+ tp)) ./ (n .* n)
 bacc = ((tp ./ (tp .+ fn)) .+ (tn ./ (fp .+ tn))) ./ 2.0
 J = (tp ./ (tp .+ fn)) + (tn ./ (tn .+ fp)) .- 1.0
 κ = (acc .- racc) ./ (1.0 .- racc)
+threat = tp ./ (tp .+ fn .+ fp)
+fomrate = fn ./ (fn .+ tn)
+fdirate = fp ./ (fp .+ tp)
+ppv = tp ./ (tp .+ fp)
+npv = tn ./ (tn .+ fn)
+
+# TODO add these to a Dict and save to a JSON file
 
 # This bit is here to get the AUC
 dx = [reverse(fpr)[i] - reverse(fpr)[i - 1] for i in 2:length(fpr)]

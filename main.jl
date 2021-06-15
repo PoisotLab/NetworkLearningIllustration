@@ -46,7 +46,7 @@ scatter(
     alpha=0.6,
     lab=false,
     aspectratio=1,
-    dpi=400,
+    dpi=600,
     size=(400, 400),
 )
 xaxis!("PC1")
@@ -161,7 +161,7 @@ end
 # This is a simple plot of the loss values over time, to aid with the diagnosis of
 # overfitting -- if the two curves diverge a lot, especially with the testing
 # loss going back up, the model is mad sus
-plot(epc, trainlossvalue[epc]; lab="Training", dpi=400, frame=:box, size=(400, 400))
+plot(epc, trainlossvalue[epc]; lab="Training", dpi=600, frame=:box, size=(400, 400))
 plot!(epc, testlossvalue[epc]; lab="Testing")
 xaxis!("Epoch")
 yaxis!("Loss (MSE)")
@@ -246,7 +246,7 @@ open("artifacts/validation.json", "w") do f
 end
 
 # ROC plot
-plot(fpr, tpr; aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400, 400))
+plot(fpr, tpr; aspectratio=1, frame=:box, lab="", dpi=600, size=(400, 400))
 scatter!([fpr[thr_index]], [tpr[thr_index]]; lab="", c=:black)
 plot!([0, 1], [0, 1]; c=:grey, ls=:dash, lab="")
 xaxis!("False positive rate", (0, 1))
@@ -256,9 +256,9 @@ yaxis!("True positive rate", (0, 1))
 savefig("figures/roc-auc.png")
 
 # Precision-Recall plot
-plot(tpr, ppv; aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400, 400))
+plot(tpr, ppv; aspectratio=1, frame=:box, lab="", dpi=600, size=(400, 400))
 scatter!([tpr[thr_index]], [ppv[thr_index]]; lab="", c=:black)
-plot!([0, 1], [0, 1]; c=:grey, ls=:dash, lab="")
+plot!([0, 1], [1, 0]; c=:grey, ls=:dash, lab="")
 xaxis!("True positive rate", (0, 1))
 yaxis!("Positive predictive value", (0, 1))
 
@@ -309,7 +309,7 @@ dp = [(degree(N)[s], degree(P)[s]) for s in species(M; dims=1)]
 scatter(
     dh;
     frame=:box,
-    dpi=400,
+    dpi=600,
     legend=:bottomright,
     aspectratio=1,
     label="Hosts",
@@ -328,7 +328,7 @@ savefig("figures/degree-change.png")
 density(
     collect(values(specificity(M)));
     frame=:box,
-    dpi=400,
+    dpi=600,
     lab="Empirical",
     fill=(0, 0.2),
     size=(400, 400),
@@ -392,7 +392,7 @@ plot(
     legend=false,
     c=:lightgrey,
     alpha=0.1,
-    dpi=400,
+    dpi=600,
     size=(400, 400),
 )
 plot!(nx, ny; lab="", c=:black, alpha=0.1, lw=0.5)

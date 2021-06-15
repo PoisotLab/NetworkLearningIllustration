@@ -361,6 +361,19 @@ elbow = [
 ];
 # use scatter(elbow) to check
 
+# Cluster based on the above color
+clusters = kmeans(emb_post', 7).assignments
+# wng = palette(distinguishable_colors(length(unique(clusters))))
+wng = palette([
+    colorant"#e69f00",
+    colorant"#56b4e9",
+    colorant"#009e73",
+    colorant"#f0e442",
+    colorant"#0072b2",
+    colorant"#d55e00",
+    colorant"#cc79a7",
+])
+
 # Positions of the hosts and parasites
 idx_para = indexin(species(M; dims=1), species(K))
 idx_host = indexin(species(M; dims=2), species(K))
@@ -391,15 +404,43 @@ plot(
     lab="",
     legend=false,
     c=:lightgrey,
-    alpha=0.1,
     dpi=600,
+    lw=0.5,
     size=(400, 400),
 )
-plot!(nx, ny; lab="", c=:black, alpha=0.1, lw=0.5)
 
 # Then we add the nodes
-clusters = kmeans(emb_post', 7).assignments
-wng = palette(distinguishable_colors(length(unique(clusters))))
+scatter!(
+    emb_post[idx_host, 1],
+    emb_post[idx_host, 2];
+    m=:square,
+    marker_z=clusters[idx_host],
+    msw=0.0,
+    ms=3,
+    c=wng,
+)
+scatter!(
+    emb_post[idx_para, 1], emb_post[idx_para, 2]; ms=3, marker_z=clusters[idx_para], c=wng
+)
+
+# And we save
+savefig("figures/tsne-original.png")
+
+# We do the same plot but with the
+plot(
+    ox,
+    oy;
+    frame=:none,
+    lab="",
+    legend=false,
+    c=:lightgrey,
+    dpi=600,
+    lw=0.5,
+    size=(400, 400),
+)
+plot!(nx, ny; lab="", c=:black, alpha=0.2, lw=0.6)
+
+# Then we add the nodes
 scatter!(
     emb_post[idx_host, 1],
     emb_post[idx_host, 2];
@@ -415,4 +456,3 @@ scatter!(
 
 # And we save
 savefig("figures/tsne-imputed.png")
-

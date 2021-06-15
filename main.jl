@@ -255,6 +255,16 @@ yaxis!("True positive rate", (0, 1))
 # We also save this one to a file
 savefig("figures/roc-auc.png")
 
+# Precision-Recall plot
+plot(tpr, ppv; aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400, 400))
+scatter!([tpr[thr_index]], [ppv[thr_index]]; lab="", c=:black)
+plot!([0, 1], [0, 1]; c=:grey, ls=:dash, lab="")
+xaxis!("True positive rate", (0, 1))
+yaxis!("Positive predictive value", (0, 1))
+
+# We also save this one to a file
+savefig("figures/precision-recall.png")
+
 # We save the network itself as a bson object
 @save "artifacts/netpred.bson" m
 

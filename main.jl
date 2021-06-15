@@ -18,7 +18,7 @@ for f in ["figures", "artifacts"]
 end
 
 # We set a chill little seed for the random number generator
-Random.seed!(420)
+Random.seed!(420);
 
 # Default theme for the plots
 theme(:bright)
@@ -245,25 +245,6 @@ open("artifacts/validation.json", "w") do f
     JSON.print(f, validation, 4)
 end
 
-# ROC plot
-plot(fpr, tpr; aspectratio=1, frame=:box, lab="", dpi=600, size=(400, 400))
-scatter!([fpr[thr_index]], [tpr[thr_index]]; lab="", c=:black)
-plot!([0, 1], [0, 1]; c=:grey, ls=:dash, lab="")
-xaxis!("False positive rate", (0, 1))
-yaxis!("True positive rate", (0, 1))
-
-# We also save this one to a file
-savefig("figures/roc-auc.png")
-
-# Precision-Recall plot
-plot(tpr, ppv; aspectratio=1, frame=:box, lab="", dpi=600, size=(400, 400))
-scatter!([tpr[thr_index]], [ppv[thr_index]]; lab="", c=:black)
-plot!([0, 1], [1, 0]; c=:grey, ls=:dash, lab="")
-xaxis!("True positive rate", (0, 1))
-yaxis!("Positive predictive value", (0, 1))
-
-# We also save this one to a file
-savefig("figures/precision-recall.png")
 
 # We save the network itself as a bson object
 @save "artifacts/netpred.bson" m
@@ -384,35 +365,71 @@ for (i, ip) in enumerate(old_interacting_pairs)
 end
 
 # We start by plotting the edges
-plot(
+tsneplt = plot(
     ox,
     oy;
     frame=:none,
     lab="",
     legend=false,
-    c=:lightgrey,
-    alpha=0.1,
+    c=:mediumpurple4,
+    alpha=0.07,
     dpi=600,
-    size=(400, 400),
+    size=(400, 600),
 )
-plot!(nx, ny; lab="", c=:black, alpha=0.1, lw=0.5)
-
+plot!(tsneplt, nx, ny; lab="", c=:lightgrey, alpha=0.15, lw=0.5)
 # Then we add the nodes
 clusters = kmeans(emb_post', 7).assignments
-wng = palette(distinguishable_colors(length(unique(clusters))))
-scatter!(
+# wng = palette(distinguishable_colors(length(unique(clusters))))
+wng = palette(palette(:RdBu_10)[2:end])
+scatter!(tsneplt,
     emb_post[idx_host, 1],
     emb_post[idx_host, 2];
     m=:square,
     marker_z=clusters[idx_host],
-    msw=0.0,
-    ms=3,
+    msw=0.3,
+    ms=7,
     c=wng,
 )
-scatter!(
-    emb_post[idx_para, 1], emb_post[idx_para, 2]; ms=3, marker_z=clusters[idx_para], c=wng
+scatter!(tsneplt,
+    emb_post[idx_para, 1], emb_post[idx_para, 2]; ms=7, msw=0.3, marker_z=clusters[idx_para], c=wng
 )
-
+title!(tsneplt, "C)")
 # And we save
-savefig("figures/tsne-imputed.png")
+savefig(tsneplt,"figures/tsne-imputed.png")
+
+
+
+# ROC plot
+rocauc = plot(fpr, tpr; lw=2,aspectratio=1, frame=:box, lab="", dpi=600, size=(300, 270), padding=0)
+scatter!(rocauc,[fpr[thr_index]], [tpr[thr_index]]; lab="", c=:black)
+plot!(rocauc,[0, 1], [0, 1]; c=:grey, ls=:dash, lab="")
+title!(rocauc,"A)")
+xaxis!(rocauc,"False positive rate", (0, 1))
+yaxis!(rocauc,"True positive rate", (0, 1))
+
+# We also save this one to a file
+savefig(rocauc,"figures/roc-auc.png")
+
+# Precision-Recall plot
+prauc = plot(tpr, ppv; lw=2, aspectratio=1, frame=:box, lab="", padding=0, dpi=600, size=(300, 230))
+scatter!(prauc, [tpr[thr_index]], [ppv[thr_index]]; lab="", c=:black)
+plot!(prauc,[0, 1], [1, 0]; c=:grey, ls=:dash, lab="")
+title!(prauc,"B)")
+xaxis!(prauc,"True positive rate", (0, 1))
+yaxis!(prauc,"Positive predictive value", (0, 1))
+plot!(plottitlefonthalign="right")
+
+# We also save this one to a file
+savefig(prauc,"figures/precision-recall.png")
+
+
+l = @layout [grid(2,1) a{0.6w}] 
+
+plot(rocauc, prauc, tsneplt, layout = l, size = (900,900), padding=0)
+savefig("fig1.png")
+
+
+# plots cache resetter
+l = @layout [grid(3,1) a{0.6w}] 
+plot(plot(),rocauc, prauc, tsneplt, layout = l, size = (900,900), padding=5)
 

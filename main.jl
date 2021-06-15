@@ -8,7 +8,7 @@ using BSON: @save, @load
 using Statistics
 using TSne
 using DataFrames
-import CSV
+using CSV: CSV
 using ParallelKMeans
 using JSON
 
@@ -41,13 +41,13 @@ pr = MultivariateStats.transform(pc, Float64.(Array(K.edges)))
 # Plot of the features for axis 1 and 2
 scatter(
     pr[:, 1],
-    pr[:, 2],
-    frame = :origin,
-    alpha = 0.6,
-    lab = false,
-    aspectratio = 1,
-    dpi = 400,
-    size = (400, 400),
+    pr[:, 2];
+    frame=:origin,
+    alpha=0.6,
+    lab=false,
+    aspectratio=1,
+    dpi=400,
+    size=(400, 400),
 )
 xaxis!("PC1")
 yaxis!("PC2")
@@ -59,19 +59,19 @@ nf = 15
 # These objects will store some temporary data
 cooc = zeros(Bool, prod(size(M)))                  # H/P co-occurrence?
 labels = zeros(Bool, prod(size(M)))                # H/P interaction?
-features = zeros(Float64, (2*nf, prod(size(M))))   # H/P latent traits
+features = zeros(Float64, (2 * nf, prod(size(M))))   # H/P latent traits
 
 # We then move through the metaweb step by step
 cursor = 0
 for i in species(M; dims=1), j in species(M; dims=2)
     global cursor += 1
     # Interaction in the metaweb?
-    labels[cursor] = M[i,j]
+    labels[cursor] = M[i, j]
     # Values in the PCA space
     p_i = findfirst(i .== species(N))
     p_j = findfirst(j .== species(N))
-    features[1:nf, cursor] .= pr[1:nf,p_i]
-    features[(nf+1):end, cursor] .= pr[1:nf,p_j]
+    features[1:nf, cursor] .= pr[1:nf, p_i]
+    features[(nf + 1):end, cursor] .= pr[1:nf, p_j]
     # Co-occurrence?
     for b in B
         if i in species(b)
@@ -89,13 +89,13 @@ y = Matrix(hcat(labels[kept])')       # Interaction bit
 
 # This will setup the model for training,
 # with 20% of data leftover for validation
-training_size = convert(Int64, floor(size(x, 2)*0.8))
-train = sort(sample(1:size(x,2), training_size, replace=false))
-test = filter(i -> !(i in train), 1:size(x,2))
+training_size = convert(Int64, floor(size(x, 2) * 0.8))
+train = sort(sample(1:size(x, 2), training_size; replace=false))
+test = filter(i -> !(i in train), 1:size(x, 2))
 
 # The final datasets we will use are as follows:
-data = (x[:,train], y[:,train])
-data_test = (x[:,test], y[:,test])
+data = (x[:, train], y[:, train])
+data_test = (x[:, test], y[:, test])
 
 # The model is specified as a series of chained layers
 m = Chain(
@@ -109,7 +109,7 @@ m = Chain(
     Dense(ceil(Int64, 1.5nf), ceil(Int64, 0.8nf), σ),
     Dropout(0.6),
     # The last layer has a single bit! P(parasite → host)
-    Dense(ceil(Int64, 0.8nf), 1, σ)
+    Dense(ceil(Int64, 0.8nf), 1, σ),
 )
 
 # This step is a little long, but it's basically a plot of the untrained network
@@ -142,15 +142,15 @@ testlossvalue = zeros(Float64, n_batches)
 # This is the main training loop
 @showprogress for i in 1:n_batches
     # We pick a random batch out of the training set
-    ord = sample(train, batch_size, replace=false);
-    data_batch = (x[:,ord], y[:,ord]);
+    ord = sample(train, batch_size; replace=false)
+    data_batch = (x[:, ord], y[:, ord])
     # If the training batch is too unbalanced, we draw another one
     while sum(data_batch[2]) < ceil(Int64, 0.25batch_size)
-        ord = sample(train, batch_size, replace=false)
-        data_batch = (x[:,ord], y[:,ord])
-    end;
+        ord = sample(train, batch_size; replace=false)
+        data_batch = (x[:, ord], y[:, ord])
+    end
     # This trains the model
-    Flux.train!(loss, ps, [data_batch], opt);
+    Flux.train!(loss, ps, [data_batch], opt)
     # We only save the loss at the correct interval
     if i in epc
         trainlossvalue[i] = loss(data...)
@@ -161,8 +161,8 @@ end
 # This is a simple plot of the loss values over time, to aid with the diagnosis of
 # overfitting -- if the two curves diverge a lot, especially with the testing
 # loss going back up, the model is mad sus
-plot(epc, trainlossvalue[epc], lab="Training", dpi=400, frame=:box, size=(400,400))
-plot!(epc, testlossvalue[epc], lab="Testing")
+plot(epc, trainlossvalue[epc]; lab="Training", dpi=400, frame=:box, size=(400, 400))
+plot!(epc, testlossvalue[epc]; lab="Testing")
 xaxis!("Epoch")
 yaxis!("Loss (MSE)")
 
@@ -187,7 +187,7 @@ tn = zeros(Float64, length(thresholds))
 fn = zeros(Float64, length(thresholds))
 
 # Main loop to get the four components
-for (i,thr) in enumerate(thresholds)
+for (i, thr) in enumerate(thresholds)
     pred = vec(predictions .>= thr)
     tp[i] = sum(pred .& obs)
     tn[i] = sum(.!(pred) .& (.!obs))
@@ -224,7 +224,7 @@ thr_index = last(findmax(J))
 thr_final = thresholds[thr_index]
 
 # Save the validation measures to a plot
-validation = Dict{String, Float64}()
+validation = Dict{String,Float64}()
 validation["ROC-AUC"] = AUC
 validation["Threat score"] = threat[thr_index]
 validation["Youden's J"] = J[thr_index]
@@ -246,11 +246,11 @@ open("artifacts/validation.json", "w") do f
 end
 
 # ROC plot
-plot(fpr, tpr, aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400,400))
-scatter!([fpr[thr_index]], [tpr[thr_index]], lab="", c=:black)
-plot!([0,1], [0,1], c=:grey, ls=:dash, lab="")
-xaxis!("False positive rate", (0,1))
-yaxis!("True positive rate", (0,1))
+plot(fpr, tpr; aspectratio=1, fill=(0, 0.3), frame=:box, lab="", dpi=400, size=(400, 400))
+scatter!([fpr[thr_index]], [tpr[thr_index]]; lab="", c=:black)
+plot!([0, 1], [0, 1]; c=:grey, ls=:dash, lab="")
+xaxis!("False positive rate", (0, 1))
+yaxis!("True positive rate", (0, 1))
 
 # We also save this one to a file
 savefig("figures/roc-auc.png")
@@ -271,33 +271,43 @@ nwi = imp .& .!labels    # New
 P = copy(M)
 
 # This will store the interactions
-new_interactions = DataFrame(parasite = String[], host = String[], cooc = Bool[], p = Float64[])
+new_interactions = DataFrame(; parasite=String[], host=String[], cooc=Bool[], p=Float64[])
 
 # We will fill the network, but also add the interaction values to a DataFrame
 cursor = 0
 for i in eachindex(species(P; dims=1)), j in eachindex(species(P; dims=2))
     global cursor += 1
     if imp[cursor]
-        P[i,j] = true
-        if !M[i,j]
-            push!(new_interactions,
-                (species(P; dims=1)[i], species(P; dims=2)[j], cooc[cursor], pr[cursor])
+        P[i, j] = true
+        if !M[i, j]
+            push!(
+                new_interactions,
+                (species(P; dims=1)[i], species(P; dims=2)[j], cooc[cursor], pr[cursor]),
             )
         end
     end
 end
 
 # We save the new interactions file to disk
-CSV.write("artifacts/predictions.csv", sort(new_interactions, :p, rev=true))
+CSV.write("artifacts/predictions.csv", sort(new_interactions, :p; rev=true))
 
 # We can do simple diagnostic plots, like change in degree
 dh = [(degree(N)[s], degree(P)[s]) for s in species(M; dims=2)]
 dp = [(degree(N)[s], degree(P)[s]) for s in species(M; dims=1)]
 
 # We can plot this to check that rich do not get richer
-scatter(dh, frame=:box, dpi=400, legend=:bottomright, aspectratio=1, label="Hosts", ms=6, alpha=0.6)
-scatter!(dp, label="Parasites", ms=5, size=(400,400), alpha=0.6)
-plot!([1,200],[1,200], lab="", c=:grey, ls=:dot)
+scatter(
+    dh;
+    frame=:box,
+    dpi=400,
+    legend=:bottomright,
+    aspectratio=1,
+    label="Hosts",
+    ms=6,
+    alpha=0.6,
+)
+scatter!(dp; label="Parasites", ms=5, size=(400, 400), alpha=0.6)
+plot!([1, 200], [1, 200]; lab="", c=:grey, ls=:dot)
 xaxis!(:log10, "Degree (measured)", (1, 200))
 yaxis!(:log10, "Degree (imputed)", (1, 200))
 
@@ -305,9 +315,16 @@ yaxis!(:log10, "Degree (imputed)", (1, 200))
 savefig("figures/degree-change.png")
 
 # We can check the distribution of specificity
-density(collect(values(specificity(M))), frame=:box, dpi=400, lab="Empirical", fill=(0, 0.2), size=(400, 400))
-density!(collect(values(specificity(P))), lab="Imputed", fill=(0, 0.2))
-vline!([0.5], lab="", c=:grey, ls=:dash)
+density(
+    collect(values(specificity(M)));
+    frame=:box,
+    dpi=400,
+    lab="Empirical",
+    fill=(0, 0.2),
+    size=(400, 400),
+)
+density!(collect(values(specificity(P))); lab="Imputed", fill=(0, 0.2))
+vline!([0.5]; lab="", c=:grey, ls=:dash)
 xaxis!("Specificity", (0, 1))
 yaxis!("Density", (0, 10))
 
@@ -317,18 +334,21 @@ savefig("figures/specificity.png")
 # For a final figure, we will produce a tSNE embedding
 emb_post = tsne(
     convert.(
-        Float64,
-        Array(EcologicalNetworks.mirror(convert(UnipartiteNetwork, P)).edges),
+        Float64, Array(EcologicalNetworks.mirror(convert(UnipartiteNetwork, P)).edges)
     ),
     3,
     nf,
     15000,
-    5,
-    pca_init = true,
+    5;
+    pca_init=true,
 )
 
 # k-means
-elbow = [ParallelKMeans.kmeans(emb_post', i, n_threads=4; tol=1e-6, max_iters=500, verbose=false).totalcost for i = 2:20];
+elbow = [
+    ParallelKMeans.kmeans(
+        emb_post', i; n_threads=4, tol=1e-6, max_iters=500, verbose=false
+    ).totalcost for i in 2:20
+];
 # use scatter(elbow) to check
 
 # Positions of the hosts and parasites
@@ -337,44 +357,50 @@ idx_host = indexin(species(M; dims=2), species(K))
 
 # This next bit is just fugly code to get the edges for the plot
 old_interacting_pairs = findall(Array(M.edges) .> 0)
-new_interacting_pairs = findall(Array(P.edges).-Array(M.edges) .> 0)
+new_interacting_pairs = findall(Array(P.edges) .- Array(M.edges) .> 0)
 nx = Float64[]
 ny = Float64[]
 ox = Float64[]
 oy = Float64[]
-for (i,ip) in enumerate(new_interacting_pairs)
+for (i, ip) in enumerate(new_interacting_pairs)
     cp, ch = ip.I
     append!(nx, [emb_post[idx_para[cp], 1], emb_post[idx_host[ch], 1], NaN])
     append!(ny, [emb_post[idx_para[cp], 2], emb_post[idx_host[ch], 2], NaN])
 end
-for (i,ip) in enumerate(old_interacting_pairs)
+for (i, ip) in enumerate(old_interacting_pairs)
     cp, ch = ip.I
     append!(ox, [emb_post[idx_para[cp], 1], emb_post[idx_host[ch], 1], NaN])
     append!(oy, [emb_post[idx_para[cp], 2], emb_post[idx_host[ch], 2], NaN])
 end
 
 # We start by plotting the edges
-plot(ox, oy, frame = :none, lab = "", legend = false, c=:lightgrey, alpha=0.1, dpi=400, size=(400,400))
-plot!(nx, ny, lab = "", c=:black, alpha=0.1, lw=0.5)
+plot(
+    ox,
+    oy;
+    frame=:none,
+    lab="",
+    legend=false,
+    c=:lightgrey,
+    alpha=0.1,
+    dpi=400,
+    size=(400, 400),
+)
+plot!(nx, ny; lab="", c=:black, alpha=0.1, lw=0.5)
 
 # Then we add the nodes
 clusters = kmeans(emb_post', 7).assignments
 wng = palette(distinguishable_colors(length(unique(clusters))))
 scatter!(
     emb_post[idx_host, 1],
-    emb_post[idx_host, 2],
-    m = :square,
-    marker_z = clusters[idx_host],
-    msw = 0.0,
-    ms = 3,
-    c = wng
+    emb_post[idx_host, 2];
+    m=:square,
+    marker_z=clusters[idx_host],
+    msw=0.0,
+    ms=3,
+    c=wng,
 )
 scatter!(
-    emb_post[idx_para, 1],
-    emb_post[idx_para, 2],
-    ms = 3,
-    marker_z = clusters[idx_para],
-    c = wng
+    emb_post[idx_para, 1], emb_post[idx_para, 2]; ms=3, marker_z=clusters[idx_para], c=wng
 )
 
 # And we save

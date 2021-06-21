@@ -87,15 +87,8 @@ kept = findall(cooc)
 x = Float32.(copy(features[:, kept])) # Latent traits
 y = Matrix(hcat(labels[kept])')       # Interaction bit
 
-# This will setup the model for training,
-# with 20% of data leftover for validation
-training_size = convert(Int64, floor(size(x, 2) * 0.8))
-train = sort(sample(1:size(x, 2), training_size; replace=false))
-test = filter(i -> !(i in train), 1:size(x, 2))
 
-# The final datasets we will use are as follows:
-data = (x[:, train], y[:, train])
-data_test = (x[:, test], y[:, test])
+
 
 # The model is specified as a series of chained layers
 m = Chain(
@@ -139,6 +132,18 @@ epc = vcat(1, epc...)
 trainlossvalue = zeros(Float64, n_batches)
 testlossvalue = zeros(Float64, n_batches)
 
+
+
+# This will setup the model for training,
+# with 20% of data leftover for validation
+training_size = convert(Int64, floor(size(x, 2) * 0.8))
+train = sort(sample(1:size(x, 2), training_size; replace=false))
+test = filter(i -> !(i in train), 1:size(x, 2))
+
+# The final datasets we will use are as follows:
+data = (x[:, train], y[:, train])
+data_test = (x[:, test], y[:, test])
+
 # This is the main training loop
 @showprogress for i in 1:n_batches
     # We pick a random batch out of the training set
@@ -178,7 +183,6 @@ predictions = vec(m(data_test[1]))
 obs = vec(data_test[2])
 
 # And we pick thresholds in the [0,1] range
-thresholds = range(0.0, 1.0; length=500)
 
 # All this is going to be the components of the adjacency matrix at a given threshold
 tp = zeros(Float64, length(thresholds))
@@ -194,9 +198,10 @@ for (i, thr) in enumerate(thresholds)
     fp[i] = sum(pred .& (.!obs))
     fn[i] = sum(.!(pred) .& obs)
 end
-
 # Total number of cases
 n = tp .+ fp .+ tn .+ fn
+
+
 
 # Diagnostic measures
 tpr = tp ./ (tp .+ fn)
@@ -220,6 +225,8 @@ dy = [reverse(tpr)[i] + reverse(tpr)[i - 1] for i in 2:length(tpr)]
 AUC = sum(dx .* (dy ./ 2.0))
 
 # Final thresholding results - we pick the value maximizing Youden's J
+thresholds = range(0.0, 1.0; length=500)
+
 thr_index = last(findmax(J))
 thr_final = thresholds[thr_index]
 
@@ -433,3 +440,11 @@ savefig("fig1.png")
 l = @layout [grid(3,1) a{0.6w}] 
 plot(plot(),rocauc, prauc, tsneplt, layout = l, size = (900,900), padding=5)
 
+
+
+
+
+
+### Random splits section
+###
+###
